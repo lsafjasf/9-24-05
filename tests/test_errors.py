@@ -22,6 +22,28 @@ class TestErrorPositions(unittest.TestCase):
         self.assertIn("列数不一致", errors[0].message)
         self.assertIn("<table>", html)
 
+    def test_table_multi_extra_cells_points_at_first_extra(self):
+        md = "| a | b |\n|---|---|\n| 1 | 2 | 3 | 4 |\n"
+        html, errors = render(md)
+        self.assertEqual(len(errors), 1)
+        err = errors[0]
+        self.assertEqual(err.line, 3)
+        # "| 1 | 2 | 3 | 4 |": first extra cell "3" starts at column 11
+        self.assertEqual(err.col, 11)
+        self.assertIn("第 3 列", err.message)
+        self.assertIn("3", err.message)
+        self.assertIn("<table>", html)
+
+    def test_table_missing_cell_points_at_gap(self):
+        md = "| a | b | c |\n|---|---|---|\n| 1 | 2 |\n"
+        _, errors = render(md)
+        self.assertEqual(len(errors), 1)
+        err = errors[0]
+        self.assertEqual(err.line, 3)
+        # "| 1 | 2 |": missing 3rd cell would sit at the closing "|" (col 9)
+        self.assertEqual(err.col, 9)
+        self.assertIn("缺少第 3 列", err.message)
+
     def test_illegal_list_nesting_reports_position(self):
         md = "- a\n  - b\n    - c\n"
         html, errors = render(md)

@@ -36,10 +36,13 @@ CLI 以 `文件:行:列: 消息` 输出到 stderr，退出码为 1。示例：
 
 ```
 $ python3 -m mdlite examples/bad.md -o out.html
-examples/bad.md:8:1: 表格列数不一致：表头 2 列，此行 3 列
+examples/bad.md:8:15: 表格列数不一致：表头 2 列，此行 3 列（第 3 列「多余列」为多出内容）
 examples/bad.md:12:5: 非法嵌套：列表最多支持 2 层，此处为第 3 层
 examples/bad.md:14:1: 代码围栏未闭合（缺少结束的 ``` 行）
 ```
+
+表格列数不符时，行列号直接指向多出的第一个单元格（缺列时指向
+该行末尾、即缺失单元格应在的位置），不用再自己数列。
 
 出错时仍会尽力渲染其余内容（未闭合围栏内容照常转义输出、
 列数不符的行照常渲染、超深列表收敛到第二层）。
@@ -62,10 +65,15 @@ parser 每次只物化一个块，renderer 立即写出后丢弃，内存占用�
 不随输入增长；整读模式随输入线性膨胀（40 MiB 输入即达 236 MiB），
 仅供小文档的便捷 API `render()` 使用。吞吐约 6.5 MiB/s。
 
+基准脚本跨平台：Unix 用 `resource.ru_maxrss`，Windows 用
+`GetProcessMemoryInfo` 的 PeakWorkingSetSize，两者都不可用时退化为
+`tracemalloc`（只统计 Python 堆）；输出会标注所用后端，
+不同后端的数字不要直接对比。
+
 ## 运行命令
 
 ```bash
-# 自测（功能 + 注入 + 错误定位，共 39 例）
+# 自测（功能 + 注入 + 错误定位，共 41 例）
 python3 -m unittest discover -s tests -v
 
 # 渲染文件（错误输出到 stderr）

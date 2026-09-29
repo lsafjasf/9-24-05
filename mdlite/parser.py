@@ -84,6 +84,27 @@ def _is_delim_row(cells: List[str]) -> bool:
     return bool(cells) and all(_DELIM_CELL_RE.match(c or "") for c in cells)
 
 
+def _cell_col(text: str, index: int) -> int:
+    """1-based column where cell `index` (0-based) starts in the raw row.
+
+    If the row has no such cell (missing trailing cells), returns the
+    position where that cell would begin, i.e. just past the row content.
+    """
+    t = text.strip()
+    offset = len(text) - len(text.lstrip())
+    if t.startswith("|"):
+        offset += 1
+        t = t[1:]
+    if t.endswith("|"):
+        t = t[:-1]
+    pos = 0
+    for i, seg in enumerate(t.split("|")):
+        if i == index:
+            return offset + pos + (len(seg) - len(seg.lstrip())) + 1
+        pos += len(seg) + 1
+    return offset + len(t) + 1
+
+
 class _Stream:
     """One-token pushback wrapper around the token iterator."""
 
@@ -248,8 +269,14 @@ def _parse_table(
     for tok in toks[2:]:
         cells = split_cells(tok.text)
         if len(cells) != width:
+            if len(cells) > width:
+                col = _cell_col(tok.text, width)
+                detail = f"第 {width + 1} 列「{cells[width]}」为多出内容"
+            else:
+                col = _cell_col(tok.text, len(cells))
+                detail = f"缺少第 {len(cells) + 1} 列"
             errors.append(MarkdownError(
-                f"表格列数不一致：表头 {width} 列，此行 {len(cells)} 列",
-                tok.line, tok.col))
+                f"表格列数不一致：表头 {width} 列，此行 {len(cells)} 列"
+                f"（{detail}）", tok.line, col))
         rows.append([parse_inlines(c, tok.line) for c in cells])
     return Table(header, rows, first.line)
